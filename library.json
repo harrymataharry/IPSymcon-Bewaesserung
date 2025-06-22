@@ -1,17 +1,8 @@
 {
-  "id": "{5ED845A1-1AC0-4B49-AE13-C1BA3E80353C}",
-  "author": "Harry Leopold",
-  "url": "https://github.com/harrymataharry/IPSymcon-Bewaesserung",
-  "version": "1.0",
-  "build": 1,
-  "date": "2025-06-22",
-  "modules": [
-    {
-      "id": "{E79B8F6A-F34A-4C61-B00F-2A738A1F1E73}",
-      "name": "Bewässerung",
-      "type": 3,
-      "classname": "IrrigationControl",
-      "filename": "module.php"
-    }
-  ]
+  "id": "symcon-bewaesserung.library",
+  "name": "IP-Symcon Bewässerung",
+  "type": "library",
+  "author": "Dein Name",
+  "url": "https://github.com/harrymataharry/ips-bewaesserung",
+  "version": "1.0.0"
 }
