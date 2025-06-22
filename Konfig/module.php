@@ -1,10 +1,18 @@
 <?php
-class Bewaesserung extends IPSModule {
-    public function Create() {
+class IrrigationConfig extends IPSModule
+{
+    public function Create()
+    {
         parent::Create();
     }
-    public function ApplyChanges() {
-        parent::ApplyChanges();
+
+    public function GetConfigurationForm()
+    {
+        return json_encode([
+            "elements" => [],
+            "actions" => [],
+            "status" => []
+        ]);
     }
 }
 ?>
