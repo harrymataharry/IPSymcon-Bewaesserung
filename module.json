@@ -1,0 +1,8 @@
+{
+  "id": "{F2A1B3C4-...-DEADBEEF}",
+  "name": "Bewässerung",
+  "library": "symcon-bewaesserung.library",
+  "version": "1.0.0",
+  "author": "Dein Name",
+  "compatibility": {"minimum": "6.0"}
+}
