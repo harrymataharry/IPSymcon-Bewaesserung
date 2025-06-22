@@ -1,6 +1,6 @@
 <?php
 
-class BewaesserungArea extends IPSModule
+class BewaesserungFlaechenmodul extends IPSModule
 {
     public function Create()
     {
