@@ -1,0 +1,15 @@
+{
+    "elements": [
+        { "type": "Label", "label": "Globale Einstellungen" },
+        { "name": "PowerEnergyID", "type": "SelectVariable", "caption": "Stromzähler (Total Energy)" },
+        { "name": "PowerStateID", "type": "SelectVariable", "caption": "Strom Status (An/Aus)" },
+        { "type": "Label", "label": "Niederschlagsprüfung" },
+        { "name": "ArchiveID", "type": "SelectInstance", "caption": "Archiv-Handler Instanz" },
+        { "name": "RainVariableID", "type": "SelectVariable", "caption": "Regenmengen-Variable" },
+        { "name": "RainThreshold", "type": "NumberSpinner", "caption": "Regenschwelle (in L/m²)", "suffix": "L/m²" },
+        { "name": "LookbackHours", "type": "NumberSpinner", "caption": "Prüfzeitraum für Regen", "suffix": "Stunden", "value": 72 }
+    ],
+    "actions": [
+        { "type": "Button", "label": "Bewässerungszyklus manuell starten", "onClick": "BEW_StartCycle($id);" }
+    ]
+}
