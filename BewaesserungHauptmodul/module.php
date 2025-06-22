@@ -18,7 +18,7 @@ class BewaesserungHauptmodul extends IPSModule
         $this->RegisterCategory('Steuerung & Zeitplan');
         $this->RegisterVariableBoolean('GlobalActiveSwitch', 'Bewässerung aktiv', '~Switch', 10);
         $this->EnableAction('GlobalActiveSwitch');
-
+        
         // Eigenes Profil für die Einheit "l/m²" erstellen
         if (!IPS_VariableProfileExists('BEW.Rainfall.lpm2')) {
             IPS_CreateVariableProfile('BEW.Rainfall.lpm2', 2); // 2 = Float
@@ -46,7 +46,7 @@ class BewaesserungHauptmodul extends IPSModule
         $this->SetObjectParent('AlarmActive', 'Alarme');
         $this->SetObjectParent('AlarmText', 'Alarme');
     }
-
+    
     public function StartCycle()
     {
         $this->SendDebug('StartCycle', 'Manueller oder geplanter Start des Bewässerungszyklus', 0);
@@ -88,10 +88,10 @@ class BewaesserungHauptmodul extends IPSModule
                     }
                 }
             }
-
+            
             $rainLastXHours = round($maxRainValue, 2);
             SetValue($this->GetIDForIdent('RainfallLastPeriod'), $rainLastXHours);
-
+            
             $rainThreshold = $this->ReadPropertyInteger('RainThreshold');
             if ($rainLastXHours >= $rainThreshold) {
                 $this->SendDebug('StartCycle', "Genug Regen in den letzten $lookbackHours Stunden. Bewässerung wird übersprungen.", 0);
@@ -113,14 +113,14 @@ class BewaesserungHauptmodul extends IPSModule
             IPS_Sleep(5000);
         }
     }
-
+    
     public function SetAlarm(string $text) {
         $this->SendDebug('SetAlarm', "Alarm ausgelöst: $text", 0);
         IPS_LogMessage('Bewässerung Alarm', $text);
         SetValue($this->GetIDForIdent('AlarmActive'), true);
         SetValue($this->GetIDForIdent('AlarmText'), $text);
     }
-
+    
     private function ResetAlarm() {
         SetValue($this->GetIDForIdent('AlarmActive'), false);
         SetValue($this->GetIDForIdent('AlarmText'), "");
