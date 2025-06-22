@@ -1,0 +1,19 @@
+{
+  "id": "{F9F1A2E3-1234-4B6A-BB7F-1C6B5A9C39A1}",
+  "name": "Gartenbewässerung",
+  "author": "harrymataharry",
+  "url": "https://github.com/harrymataharry/IPSymcon-Bewaesserung",
+  "version": "1.0",
+  "build": 1,
+  "date": "2025-06-22",
+  "modules": [
+    {
+      "id": "{B4B88272-CCCB-4CF4-B39A-714E0B71324F}",
+      "name": "Konfiguration Gartenbewässerung",
+      "type": 3,
+      "class": "IrrigationConfig",
+      "location": "Konfig",
+      "version": "1.0"
+    }
+  ]
+}
