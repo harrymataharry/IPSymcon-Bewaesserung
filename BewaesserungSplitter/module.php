@@ -1,6 +1,6 @@
 <?php
 
-class BewaesserungSplitter extends IPSModule
+class BewässerungHauptmodul extends IPSModule
 {
     public function Create()
     {
