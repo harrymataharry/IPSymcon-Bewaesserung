@@ -1,0 +1,15 @@
+{
+    "elements": [
+        { "type": "Label", "label": "Globale Einstellungen für die gesamte Bewässerung" },
+        { "name": "GlobalActiveID", "type": "SelectVariable", "caption": "Globaler An/Aus Schalter" },
+        { "name": "PowerEnergyID", "type": "SelectVariable", "caption": "Stromzähler (Total Energy)" },
+        { "name": "PowerStateID", "type": "SelectVariable", "caption": "Strom Status (An/Aus)" },
+        { "type": "Label", "label": "Niederschlagsprüfung (letzte 72h)" },
+        { "name": "ArchiveID", "type": "SelectInstance", "caption": "Archiv-Handler Instanz" },
+        { "name": "RainVariableID", "type": "SelectVariable", "caption": "Regenmengen-Variable" },
+        { "name": "RainThreshold", "type": "NumberSpinner", "caption": "Regenschwelle (in L/m²)", "suffix": "L/m²" },
+        { "type": "Label", "label": "Globale Alarmierung" },
+        { "name": "AlarmStatusID", "type": "SelectVariable", "caption": "Alarm-Status Variable (Boolean)" },
+        { "name": "AlarmTextID", "type": "SelectVariable", "caption": "Alarm-Text Variable (String)" }
+    ], "actions": [ { "type": "Button", "label": "Bewässerungszyklus manuell starten", "onClick": "BEW_StartCycle($id);" } ]
+}
