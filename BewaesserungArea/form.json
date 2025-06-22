@@ -1,0 +1,20 @@
+{
+    "elements": [
+        { "type": "Label", "label": "Konfiguration für diese Bewässerungsfläche" },
+        { "name": "AreaName", "type": "ValidationTextBox", "caption": "Name der Fläche" },
+        { "name": "VentilID", "type": "SelectVariable", "caption": "Ventil (Aktor)" },
+        { "name": "ZielWassermenge", "type": "NumberSpinner", "caption": "Ziel-Wassermenge", "suffix": "Liter" },
+        { "name": "MaxDuration", "type": "NumberSpinner", "caption": "Maximale Dauer (Sicherheits-Timeout)", "suffix": "Minuten" },
+        { "type": "ExpansionPanel", "caption": "Optionale Sensoren & Überwachung", "items": [
+            { "name": "BodenfeuchteSensorID", "type": "SelectVariable", "caption": "Bodenfeuchtesensor" },
+            { "name": "MindestBodenfeuchte", "type": "NumberSpinner", "caption": "Mindest-Bodenfeuchte zum Starten", "suffix": "%" },
+            { "name": "ShellyReachableID", "type": "SelectVariable", "caption": "Shelly Erreichbarkeit" }
+        ]}
+    ],
+    "status": [
+        { "code": 102, "icon": "active", "caption": "Bereit" },
+        { "code": 104, "icon": "inactive", "caption": "Inaktiv" },
+        { "code": 200, "icon": "watering", "caption": "Bewässerung läuft..." },
+        { "code": 201, "icon": "error", "caption": "Fehler!" }
+    ]
+}
