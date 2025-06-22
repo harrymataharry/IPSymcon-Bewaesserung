@@ -1,6 +1,6 @@
 <?php
 
-class BewaesserungArea extends IPSModule
+class BewässerungArea extends IPSModule
 {
     public function Create()
     {
@@ -41,10 +41,21 @@ class BewaesserungArea extends IPSModule
     {
         $this->SendDebug('StartWatering', 'Anfrage zum Start der Bewässerung erhalten', 0);
         $areaName = $this->ReadPropertyString('AreaName');
+        $parentID = $this->GetParentID();
+
+        if ($parentID == 0) { return; }
 
         $bodenfeuchteID = $this->ReadPropertyInteger('BodenfeuchteSensorID');
         if ($bodenfeuchteID > 0) {
+            if (!IPS_VariableExists($bodenfeuchteID)) {
+                BEW_SetAlarm($parentID, "Alarm für '$areaName': Konfigurierter Bodenfeuchtesensor (ID $bodenfeuchteID) existiert nicht!");
+                return;
+            }
             $aktuelleFeuchte = GetValue($bodenfeuchteID);
+            if (!is_numeric($aktuelleFeuchte)) {
+                BEW_SetAlarm($parentID, "Alarm für '$areaName': Bodenfeuchtesensor liefert keinen gültigen Wert!");
+                return;
+            }
             $schwelle = $this->ReadPropertyInteger('MindestBodenfeuchte');
             if ($aktuelleFeuchte >= $schwelle) {
                 $this->SendDebug('StartWatering', "Bodenfeuchte ($aktuelleFeuchte%) ist ausreichend. Abbruch.", 0);
@@ -53,8 +64,8 @@ class BewaesserungArea extends IPSModule
         }
 
         $shellyReachableID = $this->ReadPropertyInteger('ShellyReachableID');
-        if ($shellyReachableID > 0 && !GetValue($shellyReachableID)) {
-            $this->SetErrorState("Fehler bei '$areaName': Shelly ist nicht erreichbar.");
+        if ($shellyReachableID > 0 && GetValue($shellyReachableID) === false) {
+            BEW_SetAlarm($parentID, "Alarm für '$areaName': Shelly ist nicht erreichbar!");
             return;
         }
 
@@ -64,17 +75,17 @@ class BewaesserungArea extends IPSModule
 
         $ventilID = $this->ReadPropertyInteger('VentilID');
         if ($ventilID > 0) RequestAction($ventilID, true);
-        IPS_Sleep(2000);
+        IPS_Sleep(5000); 
 
-        $parentID = IPS_GetInstance($this->InstanceID)['ConnectionID'];
-        if ($parentID == 0 || !IPS_ObjectExists($parentID)) {
-            $this->SetErrorState("Fehler bei '$areaName': Kein Hauptmodul als Gateway verbunden.");
-            $this->StopWatering("Fehler: Kein Gateway");
+        if ($ventilID > 0 && GetValue($ventilID) === false) {
+            BEW_SetAlarm($parentID, "Alarm für '$areaName': Ventil konnte nicht geöffnet werden oder liefert keinen positiven Status!");
+            $this->StopWatering("Fehler: Ventil nicht geöffnet");
             return;
         }
-        $ioID = IPS_GetInstance($parentID)['ConnectionID'];
+
+        $ioID = @IPS_GetInstance($parentID)['ConnectionID'];
         if ($ioID == 0 || !IPS_ObjectExists($ioID)) {
-             $this->SetErrorState("Fehler bei '$areaName': Kein I/O (Wasserzähler) am Hauptmodul konfiguriert.");
+             BEW_SetAlarm($parentID, "Alarm: Kein I/O (Wasserzähler) am Hauptmodul konfiguriert.");
              $this->StopWatering("Fehler: Kein IO");
              return;
         }
@@ -95,13 +106,15 @@ class BewaesserungArea extends IPSModule
         $ventilID = $this->ReadPropertyInteger('VentilID');
         if ($ventilID > 0) RequestAction($ventilID, false);
         
-        $parentID = IPS_GetInstance($this->InstanceID)['ConnectionID'];
-        if($parentID > 0 && IPS_GetInstance($parentID)['ConnectionID'] > 0) {
-            $ioID = IPS_GetInstance($parentID)['ConnectionID'];
-            $startWater = json_decode($this->GetBuffer('StartWater'));
-            $endWater = GetValue($ioID);
-            $verbrauch = $endWater - $startWater;
-            $this->SetValue('LastConsumption', $verbrauch);
+        $parentID = $this->GetParentID();
+        if($parentID > 0) {
+            $ioID = @IPS_GetInstance($parentID)['ConnectionID'];
+            if($ioID > 0) {
+                $startWater = json_decode($this->GetBuffer('StartWater'));
+                $endWater = GetValue($ioID);
+                $verbrauch = $endWater - $startWater;
+                $this->SetValue('LastConsumption', $verbrauch);
+            }
         }
 
         $this->SetValue('Active', false);
@@ -117,13 +130,24 @@ class BewaesserungArea extends IPSModule
     {
         if ($this->GetBuffer('State') !== 'watering') return;
         
+        $parentID = $this->GetParentID();
+        if ($parentID == 0) {
+            $this->StopWatering('Fehler: Verbindung zum Hauptmodul verloren');
+            return;
+        }
+        
         $startTime = $this->GetBuffer('StartTime');
         $startWater = $this->GetBuffer('StartWater');
         $zielMenge = $this->ReadPropertyInteger('ZielWassermenge');
         $maxDuration = $this->ReadPropertyInteger('MaxDuration') * 60;
 
-        $parentID = IPS_GetInstance($this->InstanceID)['ConnectionID'];
-        $ioID = IPS_GetInstance($parentID)['ConnectionID'];
+        $ioID = @IPS_GetInstance($parentID)['ConnectionID'];
+        if ($ioID == 0) {
+            BEW_SetAlarm($parentID, "Alarm: Verbindung zum Wasserzähler verloren.");
+            $this->StopWatering('Fehler: Kein IO');
+            return;
+        }
+
         $aktuellerWater = GetValue($ioID);
         $verbrauch = $aktuellerWater - $startWater;
         
@@ -134,18 +158,19 @@ class BewaesserungArea extends IPSModule
             return;
         }
         if (time() - $startTime > $maxDuration) {
-            $this->SetErrorState("Fehler: Maximale Dauer von " . ($maxDuration/60) . " min überschritten.");
+            $areaName = $this->ReadPropertyString('AreaName');
+            BEW_SetAlarm($parentID, "Alarm für '$areaName': Maximale Dauer von " . ($maxDuration/60) . " min überschritten.");
             $this->StopWatering("Fehler: Zeitlimit");
             return;
         }
     }
 
-    private function SetErrorState(string $message)
+    private function GetParentID()
     {
-        $this->SetStatus(201);
-        $parentID = IPS_GetInstance($this->InstanceID)['ConnectionID'];
-        if ($parentID > 0) {
-            BEW_SetAlarm($parentID, $message);
+        $parentID = @IPS_GetInstance($this->InstanceID)['ConnectionID'];
+        if($parentID === 0) {
+            $this->SetStatus(104); // Inactive
         }
+        return $parentID;
     }
 }
