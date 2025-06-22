@@ -4,8 +4,7 @@
     "type": 2,
     "vendor": "Harald Leopold",
     "aliases": [ "Bewässerung Steuerung", "Irrigation Controller" ],
-    "parentRequirements": [ "{018EF6B5-AB94-40C6-AA53-46943E824ACF}" ],
     "childRequirements": [ "{C2D4E5F6-A7B8-4C9D-0E1F-2A3B4C5D6E7F}" ],
-    "implemented": [],
+    "implemented": [ "{018EF6B5-AB94-40C6-AA53-46943E824ACF}" ],
     "prefix": "BEW"
 }
