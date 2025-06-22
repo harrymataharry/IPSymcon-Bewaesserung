@@ -5,41 +5,62 @@ class BewässerungHauptmodul extends IPSModule
     public function Create()
     {
         parent::Create();
-        $this->RegisterPropertyInteger('GlobalActiveID', 0);
+        // --- EIGENSCHAFTEN ---
         $this->RegisterPropertyInteger('PowerEnergyID', 0);
         $this->RegisterPropertyInteger('PowerStateID', 0);
         $this->RegisterPropertyInteger('ArchiveID', 0);
         $this->RegisterPropertyInteger('RainVariableID', 0);
         $this->RegisterPropertyInteger('RainThreshold', 10);
-        // NEU: Neue Eigenschaft für die Stunden registrieren
         $this->RegisterPropertyInteger('LookbackHours', 72);
-        $this->RegisterPropertyInteger('AlarmStatusID', 0);
-        $this->RegisterPropertyInteger('AlarmTextID', 0);
 
-        $this->RegisterTimer('DailyStartTimer', 0, 'BEW_StartCycle($_IPS[\'TARGET\']);');
+        // --- OBJEKTE ERSTELLEN ---
+        // Kategorie für Steuerung
+        $this->RegisterCategory('Steuerung & Zeitplan');
+        $this->RegisterVariableBoolean('GlobalActiveSwitch', 'Bewässerung aktiv', '~Switch', 10);
+        $this->EnableAction('GlobalActiveSwitch');
+        
+        // Eigenes Profil für die Einheit "l/m²" erstellen
+        if (!IPS_VariableProfileExists('BEW.Rainfall.lpm2')) {
+            IPS_CreateVariableProfile('BEW.Rainfall.lpm2', 2); // 2 = Float
+            IPS_SetVariableProfileText('BEW.Rainfall.lpm2', '', ' l/m²');
+            IPS_SetVariableProfileDigits('BEW.Rainfall.lpm2', 2);
+        }
+        $this->RegisterVariableFloat('RainfallLastPeriod', 'Regenmenge im Prüfzeitraum', 'BEW.Rainfall.lpm2', 20);
+
+        // Wochenplan erstellen
+        $this->RegisterEvent('WeeklyPlan', 'Bewässerungsplan', 2, 30); // Typ 2 = Wochenplan
+        IPS_SetEventScheduleAction($this->GetIDForIdent('WeeklyPlan'), 0, 'Bewässerung starten', 0x0000FF, 'BEW_StartCycle(' . $this->InstanceID . ');');
+
+        // Kategorie und Variablen für Alarme
+        $this->RegisterCategory('Alarme');
+        $this->RegisterVariableBoolean('AlarmActive', 'Alarm aktiv', '~Alert', 100);
+        $this->RegisterVariableString('AlarmText', 'Alarmmeldung', '~HTMLBox', 110);
     }
 
     public function ApplyChanges()
     {
         parent::ApplyChanges();
+        // Objekte in Kategorien verschieben
+        $this->SetObjectParent('GlobalActiveSwitch', 'Steuerung & Zeitplan');
+        $this->SetObjectParent('WeeklyPlan', 'Steuerung & Zeitplan');
+        $this->SetObjectParent('AlarmActive', 'Alarme');
+        $this->SetObjectParent('AlarmText', 'Alarme');
     }
-
+    
     public function StartCycle()
     {
         $this->SendDebug('StartCycle', 'Manueller oder geplanter Start des Bewässerungszyklus', 0);
 
-        // Prüfung 1: Globaler Schalter
-        $globalActiveID = $this->ReadPropertyInteger('GlobalActiveID');
-        if ($globalActiveID > 0 && !GetValue($globalActiveID)) {
-            $this->SendDebug('StartCycle', 'Bewässerung ist global deaktiviert. Abbruch.', 0);
+        $globalActiveID = $this->GetIDForIdent('GlobalActiveSwitch');
+        if (GetValue($globalActiveID) == false) {
+            $this->SendDebug('StartCycle', 'Bewässerung ist über den internen Schalter deaktiviert. Abbruch.', 0);
             return;
         }
 
-        // Prüfung 2: Stromversorgung
         $powerEnergyID = $this->ReadPropertyInteger('PowerEnergyID');
         if ($powerEnergyID > 0) {
             $lastUpdate = IPS_GetVariable($powerEnergyID)['VariableChanged'];
-            if (time() - $lastUpdate > 900) { // 15 Minuten Toleranz
+            if (time() - $lastUpdate > 900) {
                 $this->SetAlarm('Stromversorgung scheint inaktiv (keine Zähler-Aktualisierung).');
                 return;
             }
@@ -51,69 +72,76 @@ class BewässerungHauptmodul extends IPSModule
         }
         $this->SendDebug('StartCycle', 'Stromversorgung OK.', 0);
 
-        // +++ BEGINN DER LOGIK-ÄNDERUNG +++
-        // Prüfung 3: Regenmenge der letzten X Stunden (Logik aus Skript übernommen)
         $archiveID = $this->ReadPropertyInteger('ArchiveID');
         $rainVarID = $this->ReadPropertyInteger('RainVariableID');
         $lookbackHours = $this->ReadPropertyInteger('LookbackHours');
-
         if ($archiveID > 0 && $rainVarID > 0 && $lookbackHours > 0) {
             $now = time();
-            $startTime = $now - ($lookbackHours * 3600); // 3600 Sekunden pro Stunde
-
-            // Rohdaten aus dem Archiv laden, genau wie im Skript
+            $startTime = $now - ($lookbackHours * 3600);
             $loggedValues = AC_GetLoggedValues($archiveID, $rainVarID, $startTime, $now, 0);
 
             $maxRainValue = 0;
             if (is_array($loggedValues) && count($loggedValues) > 0) {
-                // Maximalen Wert im Zeitraum finden
                 foreach ($loggedValues as $record) {
                     if ($record['Value'] > $maxRainValue) {
                         $maxRainValue = $record['Value'];
                     }
                 }
             }
-
+            
             $rainLastXHours = round($maxRainValue, 2);
+            SetValue($this->GetIDForIdent('RainfallLastPeriod'), $rainLastXHours);
+            
             $rainThreshold = $this->ReadPropertyInteger('RainThreshold');
-
-            $this->SendDebug('StartCycle', "Regenmenge letzte $lookbackHours Stunden: $rainLastXHours L, Schwelle: $rainThreshold L", 0);
-
             if ($rainLastXHours >= $rainThreshold) {
                 $this->SendDebug('StartCycle', "Genug Regen in den letzten $lookbackHours Stunden. Bewässerung wird übersprungen.", 0);
                 return;
             }
         }
-        // +++ ENDE DER LOGIK-ÄNDERUNG +++
 
         $this->SendDebug('StartCycle', 'Alle globalen Prüfungen bestanden. Starte Bewässerung der Flächen.', 0);
         $this->ResetAlarm();
 
-        // Prüfung 4: Flächen starten
-        $childrenIDs = IPS_GetChildrenIDs($this->InstanceID);
+        $childrenIDs = $this->GetChildren();
         foreach ($childrenIDs as $childID) {
-            if (IPS_GetInstance($childID)['InstanceStatus'] == 102) {
-                $this->SendDebug('StartCycle', "Starte Bewässerung für Fläche $childID.", 0);
-                try {
-                    BEWArea_StartWatering($childID);
-                } catch (Exception $e) {
-                    $this->SendDebug('StartCycle', "Fehler beim Starten der Fläche $childID: " . $e->getMessage(), 0);
-                }
-                IPS_Sleep(5000);
+            $this->SendDebug('StartCycle', "Starte Bewässerung für Fläche $childID.", 0);
+            try {
+                BEWArea_StartWatering($childID);
+            } catch (Exception $e) {
+                $this->SendDebug('StartCycle', "Fehler beim Starten der Fläche $childID: " . $e->getMessage(), 0);
             }
+            IPS_Sleep(5000);
+        }
+    }
+    
+    public function SetAlarm(string $text) {
+        $this->SendDebug('SetAlarm', "Alarm ausgelöst: $text", 0);
+        IPS_LogMessage('Bewässerung Alarm', $text);
+        SetValue($this->GetIDForIdent('AlarmActive'), true);
+        SetValue($this->GetIDForIdent('AlarmText'), $text);
+    }
+    
+    private function ResetAlarm() {
+        SetValue($this->GetIDForIdent('AlarmActive'), false);
+        SetValue($this->GetIDForIdent('AlarmText'), "");
+    }
+
+    private function SetObjectParent($Ident, $ParentIdent) {
+        $objID = @$this->GetIDForIdent($Ident);
+        $parentID = @$this->GetIDForIdent($ParentIdent);
+        if($objID && $parentID && (IPS_GetObject($objID)['ParentID'] != $parentID)) {
+            IPS_SetParent($objID, $parentID);
         }
     }
 
-    public function SetAlarm(string $text) {
-        $this->SendDebug('SetAlarm', "Alarm ausgelöst: $text", 0);
-        $statusID = $this->ReadPropertyInteger('AlarmStatusID');
-        $textID = $this->ReadPropertyInteger('AlarmTextID');
-        if ($statusID > 0) SetValue($statusID, true);
-        if ($textID > 0) SetValue($textID, $text);
-    }
-
-    private function ResetAlarm() {
-        $statusID = $this->ReadPropertyInteger('AlarmStatusID');
-        if ($statusID > 0) SetValue($statusID, false);
+    private function GetChildren() {
+        $childIDs = IPS_GetChildrenIDs($this->InstanceID);
+        $areaIDs = [];
+        foreach($childIDs as $id) {
+            if(IPS_GetInstance($id)['ModuleInfo']['ModuleID'] == '{C2D4E5F6-A7B8-4C9D-0E1F-2A3B4C5D6E7F}') {
+                $areaIDs[] = $id;
+            }
+        }
+        return $areaIDs;
     }
 }
